@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reminder Pro - Setup Your Reminders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: 'hsl(222.2 84% 4.9%)',
+                        foreground: 'hsl(210 40% 98%)',
+                        card: 'hsl(222.2 84% 4.9%)',
+                        'card-foreground': 'hsl(210 40% 98%)',
+                        popover: 'hsl(222.2 84% 4.9%)',
+                        'popover-foreground': 'hsl(210 40% 98%)',
+                        primary: 'hsl(210 40% 98%)',
+                        'primary-foreground': 'hsl(222.2 84% 4.9%)',
+                        secondary: 'hsl(217.2 32.6% 17.5%)',
+                        'secondary-foreground': 'hsl(210 40% 98%)',
+                        muted: 'hsl(217.2 32.6% 17.5%)',
+                        'muted-foreground': 'hsl(215 20.2% 65.1%)',
+                        accent: 'hsl(217.2 32.6% 17.5%)',
+                        'accent-foreground': 'hsl(210 40% 98%)',
+                        destructive: 'hsl(0 62.8% 30.6%)',
+                        'destructive-foreground': 'hsl(210 40% 98%)',
+                        border: 'hsl(217.2 32.6% 17.5%)',
+                        input: 'hsl(217.2 32.6% 17.5%)',
+                        ring: 'hsl(212.7 26.8% 83.9%)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-foreground min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <div class="bg-card border border-border rounded-lg p-6 shadow-lg">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold mb-2">Reminder Pro</h1>
+                <p class="text-muted-foreground">Setup your reminders and get notified when it's time to take action.</p>
+            </div>
+            
+            <form id="reminderForm" class="space-y-4">
+                <div>
+                    <label for="reminderText" class="block text-sm font-medium mb-2">What do you want to be reminded about?</label>
+                    <input 
+                        type="text" 
+                        id="reminderText" 
+                        name="reminderText"
+                        placeholder="e.g., Take medication, Call mom, Water plants"
+                        class="w-full px-3 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                        required
+                    >
+                </div>
+                
+                <div>
+                    <label for="reminderTime" class="block text-sm font-medium mb-2">When do you want to be reminded?</label>
+                    <input 
+                        type="datetime-local" 
+                        id="reminderTime" 
+                        name="reminderTime"
+                        class="w-full px-3 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                        required
+                    >
+                </div>
+                
+                <div>
+                    <label for="frequency" class="block text-sm font-medium mb-2">How often?</label>
+                    <select 
+                        id="frequency" 
+                        name="frequency"
+                        class="w-full px-3 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                        <option value="once">Just once</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="flex items-center space-x-2">
+                        <input 
+                            type="checkbox" 
+                            id="enableSound" 
+                            name="enableSound"
+                            class="rounded border-border text-primary focus:ring-ring"
+                        >
+                        <span class="text-sm">Enable sound notifications</span>
+                    </label>
+                </div>
+                
+                <button 
+                    type="submit"
+                    class="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 transition-colors font-medium"
+                >
+                    Create Reminder
+                </button>
+            </form>
+            
+            <div id="activeReminders" class="mt-6">
+                <h3 class="text-lg font-semibold mb-3">Active Reminders</h3>
+                <div id="remindersList" class="space-y-2">
+                    <!-- Reminders will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set minimum date to current time
+        document.getElementById('reminderTime').min = new Date().toISOString().slice(0, 16);
+        
+        // Handle form submission
+        document.getElementById('reminderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const reminder = {
+                id: Date.now(),
+                text: formData.get('reminderText'),
+                time: formData.get('reminderTime'),
+                frequency: formData.get('frequency'),
+                sound: formData.get('enableSound') === 'on',
+                active: true
+            };
+            
+            // Store reminder
+            let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+            reminders.push(reminder);
+            localStorage.setItem('reminders', JSON.stringify(reminders));
+            
+            // Reset form
+            e.target.reset();
+            document.getElementById('reminderTime').min = new Date().toISOString().slice(0, 16);
+            
+            // Update display
+            displayReminders();
+            
+            // Set up the actual reminder
+            scheduleReminder(reminder);
+            
+            alert('Reminder created successfully!');
+        });
+        
+        function displayReminders() {
+            const remindersList = document.getElementById('remindersList');
+            const reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+            
+            if (reminders.length === 0) {
+                remindersList.innerHTML = '<p class="text-muted-foreground text-sm">No active reminders</p>';
+                return;
+            }
+            
+            remindersList.innerHTML = reminders.map(reminder => `
+                <div class="bg-secondary p-3 rounded-md flex justify-between items-start">
+                    <div class="flex-1">
+                        <p class="font-medium">${reminder.text}</p>
+                        <p class="text-sm text-muted-foreground">
+                            ${new Date(reminder.time).toLocaleString()}
+                            ${reminder.frequency !== 'once' ? ` (${reminder.frequency})` : ''}
+                        </p>
+                    </div>
+                    <button 
+                        onclick="deleteReminder(${reminder.id})"
+                        class="text-destructive hover:text-destructive/80 text-sm ml-2"
+                    >
+                        Delete
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        function deleteReminder(id) {
+            let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+            reminders = reminders.filter(r => r.id !== id);
+            localStorage.setItem('reminders', JSON.stringify(reminders));
+            displayReminders();
+        }
+        
+        function scheduleReminder(reminder) {
+            const now = new Date().getTime();
+            const reminderTime = new Date(reminder.time).getTime();
+            const delay = reminderTime - now;
+            
+            if (delay > 0) {
+                setTimeout(() => {
+                    showNotification(reminder);
+                    
+                    // Handle recurring reminders
+                    if (reminder.frequency !== 'once') {
+                        scheduleNextOccurrence(reminder);
+                    }
+                }, delay);
+            }
+        }
+        
+        function showNotification(reminder) {
+            // Request permission for notifications
+            if (Notification.permission === 'granted') {
+                new Notification('Reminder Pro', {
+                    body: reminder.text,
+                    icon: '/favicon.ico'
+                });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        new Notification('Reminder Pro', {
+                            body: reminder.text,
+                            icon: '/favicon.ico'
+                        });
+                    }
+                });
+            }
+            
+            // Fallback alert
+            alert(`Reminder: ${reminder.text}`);
+            
+            // Play sound if enabled
+            if (reminder.sound) {
+                // You can add a beep sound here
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmUeBTuU2/HMhC4FJYvO7+KYVQY');
+                audio.play().catch(() => {});
+            }
+        }
+        
+        function scheduleNextOccurrence(reminder) {
+            const nextTime = new Date(reminder.time);
+            
+            switch (reminder.frequency) {
+                case 'daily':
+                    nextTime.setDate(nextTime.getDate() + 1);
+                    break;
+                case 'weekly':
+                    nextTime.setDate(nextTime.getDate() + 7);
+                    break;
+                case 'monthly':
+                    nextTime.setMonth(nextTime.getMonth() + 1);
+                    break;
+            }
+            
+            const updatedReminder = { ...reminder, time: nextTime.toISOString().slice(0, 16) };
+            
+            // Update in storage
+            let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+            const index = reminders.findIndex(r => r.id === reminder.id);
+            if (index !== -1) {
+                reminders[index] = updatedReminder;
+                localStorage.setItem('reminders', JSON.stringify(reminders));
+                displayReminders();
+            }
+            
+            // Schedule next occurrence
+            scheduleReminder(updatedReminder);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            displayReminders();
+            
+            // Schedule existing reminders
+            const reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+            reminders.forEach(scheduleReminder);
+            
+            // Request notification permission
+            if ('Notification' in window) {
+                Notification.requestPermission();
+            }
+        });
+    </script>
+</body>
+</html>
